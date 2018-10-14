@@ -11,9 +11,9 @@ module SoilBiogeochemNitrogenFluxType
   use CNSharedParamsMod                  , only : use_fun
   use SoilBiogeochemDecompCascadeConType , only : decomp_cascade_con
   use abortutils                         , only : endrun
-  use LandunitType                       , only : lun                
-  use ColumnType                         , only : col                
-  ! 
+  use LandunitType                       , only : lun
+  use ColumnType                         , only : col
+  !
   ! !PUBLIC TYPES:
   implicit none
   private
@@ -22,8 +22,8 @@ module SoilBiogeochemNitrogenFluxType
 
      ! deposition fluxes
      real(r8), pointer :: ndep_to_sminn_col                         (:)     ! col atmospheric N deposition to soil mineral N (gN/m2/s)
-     real(r8), pointer :: nfix_to_sminn_col                         (:)     ! col symbiotic/asymbiotic N fixation to soil mineral N (gN/m2/s) 
-     real(r8), pointer :: ffix_to_sminn_col                         (:)     ! col free living N fixation to soil mineral N (gN/m2/s)  
+     real(r8), pointer :: nfix_to_sminn_col                         (:)     ! col symbiotic/asymbiotic N fixation to soil mineral N (gN/m2/s)
+     real(r8), pointer :: ffix_to_sminn_col                         (:)     ! col free living N fixation to soil mineral N (gN/m2/s)
      real(r8), pointer :: fert_to_sminn_col                         (:)     ! col fertilizer N to soil mineral N (gN/m2/s)
      real(r8), pointer :: soyfixn_to_sminn_col                      (:)     ! col soybean fixation to soil mineral N (gN/m2/s)
 
@@ -50,6 +50,23 @@ module SoilBiogeochemNitrogenFluxType
      real(r8), pointer :: sminn_to_plant_fun_col                    (:)     ! col total soil N uptake of FUN        (gN/m2/s)
      ! ---------- NITRIF_DENITRIF  ---------------------
 
+     ! ===== BEG: added by fkm for NH3 volatilization =====
+     real(r8), pointer :: f_nh3_vol_vr_col                          (:,:)   ! col (gN/m3/s) soil NH3 volatilization flux (vertically resolved)
+     real(r8), pointer :: f_nh3_vol_col                             (:)     ! col (gN/m2/s) soil NH3 volatilization flux
+     real(r8), pointer :: f_nh3_vol_crop_col                        (:)     ! col (gN/m2/s) soil NH3 volatilization flux over crop lands
+
+     real(r8), pointer :: pot_f_nh3_vol_vr_col                      (:,:)   ! col (gN/m3/s) potential soil NH3 volatilization flux [mvm]
+     real(r8), pointer :: pot_f_nh3_vol_col                         (:)     ! col (gN/m2/s) potential soil NH3 volatilization flux [mvm]
+     ! ===== END: added by fkm for NH3 volatilization =====
+
+     ! ===== BEG: added by fkm for canopy reduction =====
+     real(r8), pointer :: f_nh3_vol_to_canopy_vr_col                (:,:)   ! col (gN/m3/s) vertically resolved canopy captured NH3 flux
+     real(r8), pointer :: f_nh3_vol_to_canopy_col                   (:)     ! col (gN/m2/s) canopy captured NH3 flux
+
+     real(r8), pointer :: f_nh3_vol_to_atmos_vr_col                 (:,:)   ! col (gN/m3/s) vertically resolved NH3 flux to the free air
+     real(r8), pointer :: f_nh3_vol_to_atmos_col                    (:)     ! col (gN/m2/s) NH3 flux to the free air
+     ! ===== END: added by fkm for canopy reduction =====
+
      ! nitrification / denitrification fluxes
      real(r8), pointer :: f_nit_vr_col                              (:,:)   ! col (gN/m3/s) soil nitrification flux
      real(r8), pointer :: f_denit_vr_col                            (:,:)   ! col (gN/m3/s) soil denitrification flux
@@ -65,6 +82,20 @@ module SoilBiogeochemNitrogenFluxType
      real(r8), pointer :: f_n2o_denit_col                           (:)     ! col flux of N2o from denitrification [gN/m^2/s]
      real(r8), pointer :: f_n2o_nit_vr_col                          (:,:)   ! col flux of N2o from nitrification [gN/m^3/s]
      real(r8), pointer :: f_n2o_nit_col                             (:)     ! col flux of N2o from nitrification [gN/m^2/s]
+     
+     ! ===== BEG: added by fkm for NOx emission =====
+     real(r8), pointer :: nox_n2o_ratio_vr_col                      (:,:)   ! col ratio of NOx to N2O production [gN/gN]
+     real(r8), pointer :: f_nox_denit_vr_col                        (:,:)   ! col flux of NOx from denitrification [gN/m^3/s]
+     real(r8), pointer :: f_nox_denit_col                           (:)     ! col flux of NOx from denitrification [gN/m^2/s]
+     real(r8), pointer :: f_nox_nit_vr_col                          (:,:)   ! col flux of NOx from nitrification [gN/m^3/s]
+     real(r8), pointer :: f_nox_nit_col                             (:)     ! col flux of NOx from nitrification [gN/m^2/s]
+     ! ===== END: added by fkm for NOx emission =====
+     
+     ! ===== BEG: added by mvm for CAM coupling =====
+     real(r8), pointer :: soil_nox_total_col                        (:)     ! col (integrated) flux of NOx from nitrification and denitrification with canopy reduction [gN/m2/s]. This is the output to the atmosphere
+     real(r8), pointer :: soil_n2o_total_col                        (:)     ! col (integrated) flux of N2O from nitrification and denitrification [gN/m2/s]. This is the output to the atmosphere
+     real(r8), pointer :: soil_nh3_total_col                        (:)     ! col (integrated) flux of NH3 from volatilization [gN/m2/s]. This is the output to the atmosphere
+     ! ===== END: added by mvm for CAM coupling =====
 
      ! immobilization / uptake fluxes
      real(r8), pointer :: actual_immob_no3_vr_col                   (:,:)   ! col vertically-resolved actual immobilization of NO3 (gN/m3/s)
@@ -106,8 +137,8 @@ module SoilBiogeochemNitrogenFluxType
      !----------- no NITRIF_DENITRIF--------------
 
      ! denitrification fluxes
-     real(r8), pointer :: sminn_to_denit_decomp_cascade_vr_col      (:,:,:) ! col vertically-resolved denitrification along decomp cascade (gN/m3/s) 
-     real(r8), pointer :: sminn_to_denit_decomp_cascade_col         (:,:)   ! col vertically-integrated (diagnostic) denitrification along decomp cascade (gN/m2/s) 
+     real(r8), pointer :: sminn_to_denit_decomp_cascade_vr_col      (:,:,:) ! col vertically-resolved denitrification along decomp cascade (gN/m3/s)
+     real(r8), pointer :: sminn_to_denit_decomp_cascade_col         (:,:)   ! col vertically-integrated (diagnostic) denitrification along decomp cascade (gN/m2/s)
      real(r8), pointer :: sminn_to_denit_excess_vr_col              (:,:)   ! col vertically-resolved denitrification from excess mineral N pool (gN/m3/s)
      real(r8), pointer :: sminn_to_denit_excess_col                 (:)     ! col vertically-integrated (diagnostic) denitrification from excess mineral N pool (gN/m2/s)
 
@@ -124,16 +155,16 @@ module SoilBiogeochemNitrogenFluxType
      real(r8), pointer :: decomp_npools_transport_tendency_col      (:,:,:) ! col N tendency due to vertical transport in decomposing N pools (gN/m^3/s)
 
      ! all n pools involved in decomposition
-     real(r8), pointer :: decomp_npools_sourcesink_col              (:,:,:) ! col (gN/m3) change in decomposing n pools 
-                                                                            ! (sum of all additions and subtractions from stateupdate1).  
+     real(r8), pointer :: decomp_npools_sourcesink_col              (:,:,:) ! col (gN/m3) change in decomposing n pools
+                                                                            ! (sum of all additions and subtractions from stateupdate1).
           real(r8), pointer :: sminn_to_plant_fun_vr_col                 (:,:)   ! col total layer soil N uptake of FUN  (gN/m2/s)
    contains
 
-     procedure , public  :: Init   
+     procedure , public  :: Init
      procedure , public  :: Restart
      procedure , public  :: SetValues
      procedure , public  :: Summary
-     procedure , private :: InitAllocate 
+     procedure , private :: InitAllocate
      procedure , private :: InitHistory
      procedure , private :: InitCold
 
@@ -149,7 +180,7 @@ contains
   subroutine Init(this, bounds)
 
     class(soilbiogeochem_nitrogenflux_type) :: this
-    type(bounds_type), intent(in) :: bounds  
+    type(bounds_type), intent(in) :: bounds
 
     call this%InitAllocate (bounds)
     call this%InitHistory (bounds)
@@ -165,7 +196,7 @@ contains
     !
     ! !ARGUMENTS:
     class(soilbiogeochem_nitrogenflux_type) :: this
-    type(bounds_type) , intent(in) :: bounds  
+    type(bounds_type) , intent(in) :: bounds
     !
     ! !LOCAL VARIABLES:
     integer           :: begc,endc
@@ -212,6 +243,18 @@ contains
     allocate(this%pot_f_nit_col                     (begc:endc))                   ; this%pot_f_nit_col              (:)   = nan
     allocate(this%pot_f_denit_vr_col                (begc:endc,1:nlevdecomp_full)) ; this%pot_f_denit_vr_col         (:,:) = nan
     allocate(this%pot_f_denit_col                   (begc:endc))                   ; this%pot_f_denit_col            (:)   = nan
+
+    allocate(this%f_nh3_vol_vr_col                  (begc:endc,1:nlevdecomp_full)) ; this%f_nh3_vol_vr_col           (:,:) = nan    ! added by fkm for NH3 volatilization
+    allocate(this%f_nh3_vol_col                     (begc:endc))                   ; this%f_nh3_vol_col              (:)   = nan    ! added by fkm for NH3 volatilization
+    allocate(this%f_nh3_vol_crop_col                (begc:endc))                   ; this%f_nh3_vol_crop_col         (:)   = nan    ! added by fkm for NH3 volatilization
+    allocate(this%pot_f_nh3_vol_vr_col              (begc:endc,1:nlevdecomp_full)) ; this%pot_f_nh3_vol_vr_col       (:,:) = nan    ! added by fkm for NH3 volatilization [mvm]
+    allocate(this%pot_f_nh3_vol_col                 (begc:endc))                   ; this%pot_f_nh3_vol_col          (:)   = nan    ! added by fkm for NH3 volatilization [mvm]
+
+    allocate(this%f_nh3_vol_to_canopy_vr_col        (begc:endc,1:nlevdecomp_full)) ; this%f_nh3_vol_to_canopy_vr_col (:,:) = nan    ! added by fkm for canopy reduction
+    allocate(this%f_nh3_vol_to_canopy_col           (begc:endc))                   ; this%f_nh3_vol_to_canopy_col    (:)   = nan    ! added by fkm for canopy reduction
+    allocate(this%f_nh3_vol_to_atmos_vr_col         (begc:endc,1:nlevdecomp_full)) ; this%f_nh3_vol_to_atmos_vr_col  (:,:) = nan    ! added by fkm for canopy reduction
+    allocate(this%f_nh3_vol_to_atmos_col            (begc:endc))                   ; this%f_nh3_vol_to_atmos_col     (:)   = nan    ! added by fkm for canopy reduction
+
     allocate(this%actual_immob_no3_vr_col           (begc:endc,1:nlevdecomp_full)) ; this%actual_immob_no3_vr_col    (:,:) = nan
     allocate(this%actual_immob_nh4_vr_col           (begc:endc,1:nlevdecomp_full)) ; this%actual_immob_nh4_vr_col    (:,:) = nan
     allocate(this%smin_no3_to_plant_vr_col          (begc:endc,1:nlevdecomp_full)) ; this%smin_no3_to_plant_vr_col   (:,:) = nan
@@ -223,6 +266,20 @@ contains
     allocate(this%f_n2o_denit_vr_col                (begc:endc,1:nlevdecomp_full)) ; this%f_n2o_denit_vr_col         (:,:) = nan
     allocate(this%f_n2o_nit_col                     (begc:endc))                   ; this%f_n2o_nit_col              (:)   = nan
     allocate(this%f_n2o_nit_vr_col                  (begc:endc,1:nlevdecomp_full)) ; this%f_n2o_nit_vr_col           (:,:) = nan
+    
+    ! ===== BEG: added by fkm for NOx emission ======
+    allocate(this%nox_n2o_ratio_vr_col              (begc:endc,1:nlevdecomp_full)) ; this%nox_n2o_ratio_vr_col       (:,:) = nan
+    allocate(this%f_nox_denit_col                   (begc:endc))                   ; this%f_nox_denit_col            (:)   = nan
+    allocate(this%f_nox_denit_vr_col                (begc:endc,1:nlevdecomp_full)) ; this%f_nox_denit_vr_col         (:,:) = nan
+    allocate(this%f_nox_nit_col                     (begc:endc))                   ; this%f_nox_nit_col              (:)   = nan
+    allocate(this%f_nox_nit_vr_col                  (begc:endc,1:nlevdecomp_full)) ; this%f_nox_nit_vr_col           (:,:) = nan
+    ! ===== END: added by fkm for NOx emission ======
+    
+    ! ===== BEG: added by mvm for CAM coupling ======
+    allocate(this%soil_nox_total_col                (begc:endc))                   ; this%soil_nox_total_col         (:)   = nan
+    allocate(this%soil_n2o_total_col                (begc:endc))                   ; this%soil_n2o_total_col         (:)   = nan
+    allocate(this%soil_nh3_total_col                (begc:endc))                   ; this%soil_nh3_total_col         (:)   = nan
+    ! ===== END: added by mvm for CAM coupling ======
 
     allocate(this%smin_no3_massdens_vr_col          (begc:endc,1:nlevdecomp_full)) ; this%smin_no3_massdens_vr_col   (:,:) = nan
     allocate(this%soil_bulkdensity_col              (begc:endc,1:nlevdecomp_full)) ; this%soil_bulkdensity_col       (:,:) = nan
@@ -238,9 +295,9 @@ contains
     allocate(this%soil_co2_prod_col                 (begc:endc,1:nlevdecomp_full)) ; this%soil_co2_prod_col          (:,:) = nan
     allocate(this%fr_WFPS_col                       (begc:endc,1:nlevdecomp_full)) ; this%fr_WFPS_col                (:,:) = spval
 
-    allocate(this%fmax_denit_carbonsubstrate_vr_col (begc:endc,1:nlevdecomp_full)) ; 
+    allocate(this%fmax_denit_carbonsubstrate_vr_col (begc:endc,1:nlevdecomp_full)) ;
     this%fmax_denit_carbonsubstrate_vr_col (:,:) = nan
-    allocate(this%fmax_denit_nitrate_vr_col         (begc:endc,1:nlevdecomp_full)) ; 
+    allocate(this%fmax_denit_nitrate_vr_col         (begc:endc,1:nlevdecomp_full)) ;
     this%fmax_denit_nitrate_vr_col         (:,:) = nan
 
     allocate(this%decomp_cascade_ntransfer_vr_col   (begc:endc,1:nlevdecomp_full,1:ndecomp_cascade_transitions ))
@@ -269,7 +326,7 @@ contains
     this%sminn_leached_vr_col                 (:,:)   = nan
     this%sminn_leached_col                    (:)     = nan
     this%decomp_npools_leached_col            (:,:)   = nan
-    this%decomp_npools_transport_tendency_col (:,:,:) = nan  
+    this%decomp_npools_transport_tendency_col (:,:,:) = nan
 
     allocate(this%decomp_npools_sourcesink_col (begc:endc,1:nlevdecomp_full,1:ndecomp_pools))
     this%decomp_npools_sourcesink_col (:,:,:) = nan
@@ -287,7 +344,7 @@ contains
     !
     ! !ARGUMENTS:
     class(soilbiogeochem_nitrogenflux_type) :: this
-    type(bounds_type), intent(in) :: bounds  
+    type(bounds_type), intent(in) :: bounds
     !
     ! !LOCAL VARIABLES:
     integer        :: k,l
@@ -303,7 +360,7 @@ contains
     ! add suffix if number of soil decomposition depths is greater than 1
     if (nlevdecomp > 1) then
        vr_suffix = "_vr"
-    else 
+    else
        vr_suffix = ""
     endif
 
@@ -450,7 +507,7 @@ contains
                   ptr_col=data1dptr, default='inactive')
           endif
 
-          if ( nlevdecomp_full > 1 ) then       
+          if ( nlevdecomp_full > 1 ) then
              !-- denitrification fluxes (none from CWD)
              if ( .not. decomp_cascade_con%is_cwd(decomp_cascade_con%cascade_donor_pool(l)) ) then
                 this%sminn_to_denit_decomp_cascade_vr_col(begc:endc,:,l) = spval
@@ -482,11 +539,11 @@ contains
     end if
 
     if (.not. use_nitrif_denitrif) then
-       if ( nlevdecomp_full > 1 ) then  
+       if ( nlevdecomp_full > 1 ) then
           this%sminn_to_denit_excess_vr_col(begc:endc,:) = spval
           call hist_addfld_decomp (fname='SMINN_TO_DENIT_EXCESS'//trim(vr_suffix), units='gN/m^3/s',  type2d='levdcmp', &
                avgflag='A', long_name='denitrification from excess mineral N pool', &
-               ptr_col=this%sminn_to_denit_excess_vr_col, default='inactive')   
+               ptr_col=this%sminn_to_denit_excess_vr_col, default='inactive')
 
           this%sminn_leached_vr_col(begc:endc,:) = spval
           call hist_addfld_decomp (fname='SMINN_LEACHED'//trim(vr_suffix), units='gN/m^3/s',  type2d='levdcmp', &
@@ -516,6 +573,59 @@ contains
             ptr_col=this%pot_f_nit_col)
     end if
 
+    ! ===== BEG: added by fkm for NH3 volatilization ===== [mvm]
+    if (use_nitrif_denitrif) then
+      this%f_nh3_vol_col(begc:endc) = spval
+      call hist_addfld1d (fname='F_NH3_VOL', units='gN/m^2/s', &
+            avgflag='A', long_name='NH3 volatilization flux', &
+            ptr_col=this%f_nh3_vol_col)
+    end if
+
+    if (use_nitrif_denitrif) then
+      this%f_nh3_vol_crop_col(begc:endc) = spval
+      call hist_addfld1d (fname='F_NH3_VOL_CROP', units='gN/m^2/s', &
+            avgflag='A', long_name='NH3 volatilization flux over croplands', &
+            ptr_col=this%f_nh3_vol_crop_col)
+    end if
+
+    if (use_nitrif_denitrif) then
+      this%pot_f_nh3_vol_col(begc:endc) = spval
+      call hist_addfld1d (fname='POT_F_NH3_VOL', units='gN/m^2/s', &
+            avgflag='A', long_name='potential NH3 volatilization flux', &
+            ptr_col=this%pot_f_nh3_vol_col) ! [mvm]
+    end if
+
+    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then
+      this%f_nh3_vol_vr_col(begc:endc,:) = spval
+      call hist_addfld_decomp (fname='F_NH3_VOL'//trim(vr_suffix), units='gN/m^3/s', type2d='levdcmp', &
+            avgflag='A', long_name='NH3 volatilization flux', &
+            ptr_col=this%f_nh3_vol_vr_col, default='inactive')
+    end if
+    
+    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then
+      this%pot_f_nh3_vol_vr_col(begc:endc,:) = spval
+      call hist_addfld_decomp (fname='POT_F_NH3_VOL'//trim(vr_suffix), units='gN/m^3/s', type2d='levdcmp', &
+            avgflag='A', long_name='potential NH3 volatilization flux', &
+            ptr_col=this%pot_f_nh3_vol_vr_col, default='inactive') ! [mvm]
+    end if
+    ! ===== END: added by fkm for NH3 volatilization ===== [mvm]
+
+    ! ===== BEG: added by fkm for canopy reduction =====
+    if (use_nitrif_denitrif) then
+      this%f_nh3_vol_to_canopy_col(begc:endc) = spval
+      call hist_addfld1d (fname='F_NH3_VOL_TO_CANOPY', units='gN/m^2/s', &
+            avgflag='A', long_name='Canopy Captured NH3 flux', &
+            ptr_col=this%f_nh3_vol_to_canopy_col)
+    end if
+
+    if (use_nitrif_denitrif) then
+      this%f_nh3_vol_to_atmos_col(begc:endc) = spval
+      call hist_addfld1d (fname='F_NH3_VOL_TO_ATMOS', units='gN/m^2/s', &
+            avgflag='A', long_name='NH3 flux to the Free Air', &
+            ptr_col=this%f_nh3_vol_to_atmos_col)
+    end if
+    ! ===== END: added by fkm for canopy reduction =====
+
     if (use_nitrif_denitrif) then
        this%pot_f_denit_col(begc:endc) = spval
        call hist_addfld1d (fname='POT_F_DENIT', units='gN/m^2/s', &
@@ -536,43 +646,43 @@ contains
             avgflag='A', long_name='soil NO3 pool loss to runoff', &
             ptr_col=this%smin_no3_runoff_col)
     end if
-       
-    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then 
+
+    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then
        this%f_nit_vr_col(begc:endc,:) = spval
        call hist_addfld_decomp (fname='F_NIT'//trim(vr_suffix), units='gN/m^3/s', type2d='levdcmp', &
             avgflag='A', long_name='nitrification flux', &
             ptr_col=this%f_nit_vr_col, default='inactive')
     end if
 
-    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then 
+    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then
        this%f_denit_vr_col(begc:endc,:) = spval
        call hist_addfld_decomp (fname='F_DENIT'//trim(vr_suffix), units='gN/m^3/s', type2d='levdcmp', &
             avgflag='A', long_name='denitrification flux', &
             ptr_col=this%f_denit_vr_col, default='inactive')
     end if
 
-    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then 
+    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then
        this%pot_f_nit_vr_col(begc:endc,:) = spval
        call hist_addfld_decomp (fname='POT_F_NIT'//trim(vr_suffix), units='gN/m^3/s', type2d='levdcmp', &
             avgflag='A', long_name='potential nitrification flux', &
             ptr_col=this%pot_f_nit_vr_col, default='inactive')
     end if
 
-    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then 
+    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then
        this%pot_f_denit_vr_col(begc:endc,:) = spval
        call hist_addfld_decomp (fname='POT_F_DENIT'//trim(vr_suffix), units='gN/m^3/s', type2d='levdcmp', &
             avgflag='A', long_name='potential denitrification flux', &
             ptr_col=this%pot_f_denit_vr_col, default='inactive')
     end if
 
-    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then 
+    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then
        this%smin_no3_leached_vr_col(begc:endc,:) = spval
        call hist_addfld_decomp (fname='SMIN_NO3_LEACHED'//trim(vr_suffix), units='gN/m^3/s', type2d='levdcmp', &
             avgflag='A', long_name='soil NO3 pool loss to leaching', &
             ptr_col=this%smin_no3_leached_vr_col, default='inactive')
     end if
 
-    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then 
+    if (use_nitrif_denitrif .and.  nlevdecomp_full > 1 ) then
        this%smin_no3_runoff_vr_col(begc:endc,:) = spval
        call hist_addfld_decomp (fname='SMIN_NO3_RUNOFF'//trim(vr_suffix), units='gN/m^3/s', type2d='levdcmp', &
             avgflag='A', long_name='soil NO3 pool loss to runoff', &
@@ -585,6 +695,15 @@ contains
             avgflag='A', long_name='n2_n2o_ratio_denit', &
             ptr_col=this%n2_n2o_ratio_denit_vr_col, default='inactive')
     end if
+    
+    ! ===== BEG: added by fkm for NOx emissions =====
+    if (use_nitrif_denitrif) then
+       this%nox_n2o_ratio_vr_col(begc:endc,:) = spval
+       call hist_addfld_decomp (fname='nox_n2o_ratio', units='gN/gN', type2d='levdcmp', &
+            avgflag='A', long_name='nox_n2o_ratio', &
+            ptr_col=this%nox_n2o_ratio_vr_col, default='inactive')
+    end if
+    ! ===== END: added by fkm for NOx emissions =====
 
     if (use_nitrif_denitrif) then
        this%actual_immob_no3_vr_col(begc:endc,:) = spval
@@ -817,6 +936,40 @@ contains
             avgflag='A', long_name='denitrification N2O flux', &
             ptr_col=this%f_n2o_denit_col)
     end if
+    
+    ! ===== BEG: added by fkm for NOx emission =====
+    if (use_nitrif_denitrif) then
+       this%f_nox_nit_col(begc:endc) = spval
+       call hist_addfld1d (fname='F_NOX_NIT', units='gN/m^2/s', &
+            avgflag='A', long_name='nitrification NOx flux', &
+            ptr_col=this%f_nox_nit_col)
+
+       this%f_nox_denit_col(begc:endc) = spval
+       call hist_addfld1d (fname='F_NOX_DENIT', units='gN/m^2/s', &
+            avgflag='A', long_name='denitrification NOx flux', &
+            ptr_col=this%f_nox_denit_col)
+    end if
+    ! ===== END: added by fkm for NOx emission =====
+    
+    ! ===== BEG: added by mvm for CAM coupling =====
+    if (use_nitrif_denitrif) then
+
+       this%soil_nox_total_col(begc:endc) = spval
+       call hist_addfld1d (fname='SOIL_NOX_TO_CAM', units='gN/m^2/s', &
+            avgflag='A', long_name='total soil NOx (nit+denit)', &
+            ptr_col=this%soil_nox_total_col)
+
+       this%soil_n2o_total_col(begc:endc) = spval
+       call hist_addfld1d (fname='SOIL_N2O_TO_CAM', units='gN/m^2/s', &
+            avgflag='A', long_name='total soil N2O (nit+denit)', &
+            ptr_col=this%soil_n2o_total_col)
+
+       this%soil_nh3_total_col(begc:endc) = spval
+       call hist_addfld1d (fname='SOIL_NH3_TO_CAM', units='gN/m^2/s', &
+            avgflag='A', long_name='total soil NH3 (volatilization)', &
+            ptr_col=this%soil_nh3_total_col)
+    end if
+    ! ===== END: added by mvm for CAM coupling =====
 
     if (use_crop) then
        this%fert_to_sminn_col(begc:endc) = spval
@@ -845,7 +998,7 @@ contains
     !
     ! !ARGUMENTS:
     class(soilbiogeochem_nitrogenflux_type) :: this
-    type(bounds_type), intent(in) :: bounds  
+    type(bounds_type), intent(in) :: bounds
     !
     ! !LOCAL VARIABLES:
     integer :: c,l
@@ -876,7 +1029,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine Restart (this,  bounds, ncid, flag )
     !
-    ! !DESCRIPTION: 
+    ! !DESCRIPTION:
     ! Read/write CN restart data for carbon state
     !
     ! !USES:
@@ -885,7 +1038,7 @@ contains
     !
     ! !ARGUMENTS:
     class(soilbiogeochem_nitrogenflux_type) :: this
-    type(bounds_type) , intent(in)    :: bounds 
+    type(bounds_type) , intent(in)    :: bounds
     type(file_desc_t) , intent(inout) :: ncid   ! netcdf id
     character(len=*)  , intent(in)    :: flag   !'read' or 'write'
     !
@@ -923,7 +1076,7 @@ contains
           call restartvar(ncid=ncid, flag=flag, varname='f_nit_vr_vr', xtype=ncd_double, &
                dim1name='column', dim2name='levgrnd', switchdim=.true., &
                long_name='soil nitrification flux', units='gN/m3/s', &
-               interpinic_flag='interp', readvar=readvar, data=ptr2d) 
+               interpinic_flag='interp', readvar=readvar, data=ptr2d)
        else
           ptr1d => this%f_nit_vr_col(:,1)
           call restartvar(ncid=ncid, flag=flag, varname='f_nit_vr', xtype=ncd_double, &
@@ -966,11 +1119,20 @@ contains
              this%sminn_leached_vr_col(i,j)              = value_column
              this%sminn_to_plant_fun_vr_col(i,j)         = value_column
           else
+             this%f_nh3_vol_vr_col(i,j)                  = value_column ! added fkm for NH3 volatilization
+             this%pot_f_nh3_vol_vr_col(i,j)              = value_column ! added fkm for NH3 volatilization [mvm]
+
+             this%f_nh3_vol_to_canopy_vr_col(i,j)        = value_column ! added fkm for canopy reduction
+             this%f_nh3_vol_to_atmos_vr_col(i,j)         = value_column ! added fkm for canopy reduction
+
              this%f_nit_vr_col(i,j)                      = value_column
              this%f_denit_vr_col(i,j)                    = value_column
              this%smin_no3_leached_vr_col(i,j)           = value_column
-             this%smin_no3_runoff_vr_col(i,j)            = value_column 
+             this%smin_no3_runoff_vr_col(i,j)            = value_column
              this%n2_n2o_ratio_denit_vr_col(i,j)         = value_column
+             
+             this%nox_n2o_ratio_vr_col(i,j)              = value_column   ! added by fkm for NOx emission
+             
              this%pot_f_nit_vr_col(i,j)                  = value_column
              this%pot_f_denit_vr_col(i,j)                = value_column
              this%actual_immob_no3_vr_col(i,j)           = value_column
@@ -979,15 +1141,18 @@ contains
              this%smin_nh4_to_plant_vr_col(i,j)          = value_column
              this%f_n2o_denit_vr_col(i,j)                = value_column
              this%f_n2o_nit_vr_col(i,j)                  = value_column
+             
+             this%f_nox_denit_vr_col(i,j)                = value_column   ! added by fkm for NOx emission
+             this%f_nox_nit_vr_col(i,j)                  = value_column   ! added by fkm for NOx emission
 
              this%smin_no3_massdens_vr_col(i,j)          = value_column
              this%k_nitr_t_vr_col(i,j)                   = value_column
              this%k_nitr_ph_vr_col(i,j)                  = value_column
              this%k_nitr_h2o_vr_col(i,j)                 = value_column
-             this%k_nitr_vr_col(i,j)                     = value_column 
-             this%wfps_vr_col(i,j)                       = value_column 
-             this%fmax_denit_carbonsubstrate_vr_col(i,j) = value_column 
-             this%fmax_denit_nitrate_vr_col(i,j)         = value_column 
+             this%k_nitr_vr_col(i,j)                     = value_column
+             this%wfps_vr_col(i,j)                       = value_column
+             this%fmax_denit_carbonsubstrate_vr_col(i,j) = value_column
+             this%fmax_denit_nitrate_vr_col(i,j)         = value_column
              this%f_denit_base_vr_col(i,j)               = value_column
 
              this%diffus_col(i,j)                        = value_column
@@ -1028,12 +1193,28 @@ contains
        this%denit_col(i)                     = value_column
        this%sminn_to_plant_fun_col(i)        = value_column
        if (use_nitrif_denitrif) then
+
+          this%f_nh3_vol_col                 = value_column ! added fkm for NH3 volatilization
+          this%f_nh3_vol_crop_col            = value_column ! added fkm for NH3 volatilization
+          this%pot_f_nh3_vol_col             = value_column ! added fkm for NH3 volatilization [mvm]
+
+          this%f_nh3_vol_to_canopy_col       = value_column ! added fkm for canopy reduction
+          this%f_nh3_vol_to_atmos_col        = value_column ! added fkm for canopy reduction
+
           this%f_nit_col(i)                  = value_column
           this%pot_f_nit_col(i)              = value_column
           this%f_denit_col(i)                = value_column
           this%pot_f_denit_col(i)            = value_column
           this%f_n2o_denit_col(i)            = value_column
           this%f_n2o_nit_col(i)              = value_column
+          
+          this%f_nox_denit_col(i)            = value_column ! added fkm for canopy reduction
+          this%f_nox_nit_col(i)              = value_column ! added fkm for canopy reduction
+          
+          this%soil_nox_total_col(i)         = value_column ! added by mvm CAM coupling
+          this%soil_n2o_total_col(i)         = value_column ! added by mvm CAM coupling
+          this%soil_nh3_total_col(i)         = value_column ! added by mvm CAM coupling
+          
           this%smin_no3_leached_col(i)       = value_column
           this%smin_no3_runoff_col(i)        = value_column
        else
@@ -1102,10 +1283,11 @@ contains
     ! !USES:
     use clm_varpar , only: nlevdecomp, ndecomp_cascade_transitions,ndecomp_pools
     use clm_varctl , only: use_nitrif_denitrif
+    use landunit_varcon , only : istcrop           ! added by fkm for NH3 volatilization
     !
     ! !ARGUMENTS:
     class (soilbiogeochem_nitrogenflux_type) :: this
-    type(bounds_type) , intent(in) :: bounds  
+    type(bounds_type) , intent(in) :: bounds
     integer           , intent(in) :: num_soilc       ! number of soil columns in filter
     integer           , intent(in) :: filter_soilc(:) ! filter for soil columns
     !
@@ -1129,11 +1311,11 @@ contains
 
              this%decomp_cascade_ntransfer_col(c,k) = &
                   this%decomp_cascade_ntransfer_col(c,k) + &
-                  this%decomp_cascade_ntransfer_vr_col(c,j,k) * dzsoi_decomp(j) 
+                  this%decomp_cascade_ntransfer_vr_col(c,j,k) * dzsoi_decomp(j)
 
              this%decomp_cascade_sminn_flux_col(c,k) = &
                   this%decomp_cascade_sminn_flux_col(c,k) + &
-                  this%decomp_cascade_sminn_flux_vr_col(c,j,k) * dzsoi_decomp(j) 
+                  this%decomp_cascade_sminn_flux_vr_col(c,j,k) * dzsoi_decomp(j)
           end do
        end do
     end do
@@ -1191,6 +1373,29 @@ contains
              c = filter_soilc(fc)
 
              ! nitrification and denitrification fluxes
+
+             this%f_nh3_vol_col(c) = &
+                  this%f_nh3_vol_col(c) + &
+                  this%f_nh3_vol_vr_col(c,j) * dzsoi_decomp(j)     ! added by fkm for NH3 volatilization
+
+            if (lun%itype(col%landunit(c)) == istcrop) then
+                this%f_nh3_vol_crop_col(c) = &
+                     this%f_nh3_vol_crop_col(c) + &
+                     this%f_nh3_vol_vr_col(c,j) * dzsoi_decomp(j)     ! added by fkm for NH3 volatilization
+            end if
+
+             this%pot_f_nh3_vol_col(c) = &
+                  this%pot_f_nh3_vol_col(c) + &
+                  this%pot_f_nh3_vol_vr_col(c,j) * dzsoi_decomp(j) ! added by fkm for NH3 volatilization [mvm]
+
+             this%f_nh3_vol_to_canopy_col(c) = &
+                  this%f_nh3_vol_to_canopy_col(c) + &
+                  this%f_nh3_vol_to_canopy_vr_col(c,j) * dzsoi_decomp(j)     ! added by fkm for canopy reduction
+
+             this%f_nh3_vol_to_atmos_col(c) = &
+                  this%f_nh3_vol_to_atmos_col(c) + &
+                  this%f_nh3_vol_to_atmos_vr_col(c,j) * dzsoi_decomp(j)     ! added by fkm for canopy reduction
+
              this%f_nit_col(c) = &
                   this%f_nit_col(c) + &
                   this%f_nit_vr_col(c,j) * dzsoi_decomp(j)
@@ -1214,6 +1419,16 @@ contains
              this%f_n2o_denit_col(c) = &
                   this%f_n2o_denit_col(c) + &
                   this%f_n2o_denit_vr_col(c,j) * dzsoi_decomp(j)
+              
+             ! ====== BEG: added by fkm for NOx emission =====
+             this%f_nox_nit_col(c) = &
+                  this%f_nox_nit_col(c) + &
+                  this%f_nox_nit_vr_col(c,j) * dzsoi_decomp(j)
+
+             this%f_nox_denit_col(c) = &
+                  this%f_nox_denit_col(c) + &
+                  this%f_nox_denit_vr_col(c,j) * dzsoi_decomp(j)  
+             ! ====== END: added by fkm for NOx emission =====
 
              ! leaching/runoff flux
              this%smin_no3_leached_col(c) = &
@@ -1226,6 +1441,27 @@ contains
 
           end do
        end do
+       
+       ! ====== BEG: added by mvm for CAM coupling =====
+       ! fkm: In constrast to the original implementation, I moved this out from the above loop of both level (j) and column (c), and use a new column-loop only.
+       do fc = 1,num_soilc
+          c = filter_soilc(fc)
+
+          this%soil_nox_total_col(c) = &
+             ! this%f_nox_nit_col(c) + this%f_nox_denit_col(c)
+             0._r8 ! zeroing-out CLM-NOx
+                
+          this%soil_n2o_total_col(c) = &
+             ! this%f_n2o_nit_col(c) + this%f_n2o_denit_col(c) 
+             0._r8 ! zeroing-out CLM-N2O
+
+          if (lun%itype(col%landunit(c)) == istcrop) then  
+            this%soil_nh3_total_col(c) = &
+            this%f_nh3_vol_to_atmos_col(c) ! fkm: outputting NH3 associated with synthetic fertilizer in croplands only
+          end if 
+            
+       end do
+       ! ====== END: added by mvm for CAM coupling =====
 
        do fc = 1,num_soilc
           c = filter_soilc(fc)
@@ -1271,4 +1507,3 @@ contains
   end subroutine Summary
 
 end module soilbiogeochemNitrogenFluxType
-

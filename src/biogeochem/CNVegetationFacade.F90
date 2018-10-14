@@ -784,8 +784,9 @@ contains
        soilbiogeochem_nitrogenflux_inst, soilbiogeochem_nitrogenstate_inst,     &
        atm2lnd_inst, waterstate_inst, waterflux_inst,                           &
        canopystate_inst, soilstate_inst, temperature_inst, crop_inst, ch4_inst, &
-       photosyns_inst, soilhydrology_inst, energyflux_inst,          &
-       nutrient_competition_method, fireemis_inst)
+       photosyns_inst, soilhydrology_inst, energyflux_inst,                     &
+       nutrient_competition_method, fireemis_inst,                              &
+       frictionvel_inst)    ! added by fkm for canopy reduction
     !
     ! !DESCRIPTION:
     ! Do the main science for CN vegetation that needs to be done before hydrology-drainage
@@ -793,7 +794,7 @@ contains
     ! Should only be called if use_cn is true
     !
     ! !USES:
-
+    use FrictionVelocityMod                 , only : frictionvel_type  ! added by fkm for canopy reduction
     !
     ! !ARGUMENTS:
     class(cn_vegetation_type)               , intent(inout) :: this
@@ -827,6 +828,8 @@ contains
     type(energyflux_type)                   , intent(in)    :: energyflux_inst
     class(nutrient_competition_method_type) , intent(inout) :: nutrient_competition_method
     type(fireemis_type)                     , intent(inout) :: fireemis_inst
+    
+    type(frictionvel_type)                  , intent(in)    :: frictionvel_inst ! added by fkm for canopy reduction
     !
     ! !LOCAL VARIABLES:
 
@@ -854,7 +857,8 @@ contains
          atm2lnd_inst, waterstate_inst, waterflux_inst,                           &
          canopystate_inst, soilstate_inst, temperature_inst, crop_inst, ch4_inst, &
          this%dgvs_inst, photosyns_inst, soilhydrology_inst, energyflux_inst,          &
-         nutrient_competition_method, this%cnfire_method)
+         nutrient_competition_method, this%cnfire_method,                         &
+         frictionvel_inst)    ! added by fkm for canopy reduction
 
     ! fire carbon emissions 
     call CNFireEmisUpdate(bounds, num_soilp, filter_soilp, &

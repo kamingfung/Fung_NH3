@@ -32,7 +32,7 @@ module CNDriverMod
   use WaterfluxType                   , only : waterflux_type
   use atm2lndType                     , only : atm2lnd_type
   use SoilStateType                   , only : soilstate_type
-  use TemperatureType                 , only : temperature_type 
+  use TemperatureType                 , only : temperature_type
   use PhotosynthesisMod               , only : photosyns_type
   use ch4Mod                          , only : ch4_type
   use EnergyFluxType                  , only : energyflux_type
@@ -65,14 +65,14 @@ contains
     use SoilBiogeochemCompetitionMod, only : SoilBiogeochemCompetitionInit
     !
     ! !ARGUMENTS:
-    type(bounds_type)                      , intent(in)    :: bounds      
+    type(bounds_type)                      , intent(in)    :: bounds
     character(len=*)                       , intent(in)    :: NLFilename     ! Namelist filename
-    class(cnfire_method_type)              , intent(inout) :: cnfire_method 
+    class(cnfire_method_type)              , intent(inout) :: cnfire_method
     !-----------------------------------------------------------------------
     call SoilBiogeochemCompetitionInit(bounds)
     call CNPhenologyInit(bounds)
     call cnfire_method%CNFireInit(bounds, NLFilename)
-    
+
   end subroutine CNDriverInit
 
   !-----------------------------------------------------------------------
@@ -92,7 +92,8 @@ contains
        atm2lnd_inst, waterstate_inst, waterflux_inst,                                      &
        canopystate_inst, soilstate_inst, temperature_inst, crop_inst, ch4_inst,            &
        dgvs_inst, photosyns_inst, soilhydrology_inst, energyflux_inst,                     &
-       nutrient_competition_method, cnfire_method)
+       nutrient_competition_method, cnfire_method,                                         &
+       frictionvel_inst)    ! added by fkm for canopy reduction
     !
     ! !DESCRIPTION:
     ! The core CN code is executed here. Calculates fluxes for maintenance
@@ -101,13 +102,13 @@ contains
     ! stays synchronized with albedo calculations.
     !
     ! !USES:
-    use clm_varpar                        , only: nlevgrnd, nlevdecomp_full 
+    use clm_varpar                        , only: nlevgrnd, nlevdecomp_full
     use clm_varpar                        , only: nlevdecomp, ndecomp_cascade_transitions, ndecomp_pools
     use subgridAveMod                     , only: p2c, p2c_2d
     use CropType                          , only: crop_type
     use CNNDynamicsMod                    , only: CNNDeposition,CNNFixation, CNNFert, CNSoyfix,CNFreeLivingFixation
     use CNMRespMod                        , only: CNMResp
-    use CNFUNMod                          , only: CNFUNInit  !, CNFUN 
+    use CNFUNMod                          , only: CNFUNInit  !, CNFUN
     use CNPhenologyMod                    , only: CNPhenology
     use CNGRespMod                        , only: CNGResp
     use CNFireMethodMod                   , only: cnfire_method_type
@@ -126,16 +127,18 @@ contains
     use SoilBiogeochemCompetitionMod      , only: SoilBiogeochemCompetition
     use SoilBiogeochemDecompMod           , only: SoilBiogeochemDecomp
     use SoilBiogeochemLittVertTranspMod   , only: SoilBiogeochemLittVertTransp
-    use SoilBiogeochemPotentialMod        , only: SoilBiogeochemPotential 
+    use SoilBiogeochemPotentialMod        , only: SoilBiogeochemPotential
     use SoilBiogeochemVerticalProfileMod  , only: SoilBiogeochemVerticalProfile
     use SoilBiogeochemNitrifDenitrifMod   , only: SoilBiogeochemNitrifDenitrif
     use SoilBiogeochemNStateUpdate1Mod    , only: SoilBiogeochemNStateUpdate1
     use NutrientCompetitionMethodMod      , only: nutrient_competition_method_type
     use CNRootDynMod                      , only: CNRootDyn
     use CNPrecisionControlMod             , only: CNPrecisionControl
+    
+    use FrictionVelocityMod             , only : frictionvel_type  ! added by fkm for canopy reduction
     !
     ! !ARGUMENTS:
-    type(bounds_type)                       , intent(in)    :: bounds  
+    type(bounds_type)                       , intent(in)    :: bounds
     integer                                 , intent(in)    :: num_soilc         ! number of soil columns in filter
     integer                                 , intent(in)    :: filter_soilc(:)   ! filter for soil columns
     integer                                 , intent(in)    :: num_soilp         ! number of soil patches in filter
@@ -179,6 +182,8 @@ contains
     type(energyflux_type)                   , intent(in)    :: energyflux_inst
     class(nutrient_competition_method_type) , intent(inout) :: nutrient_competition_method
     class(cnfire_method_type)               , intent(inout) :: cnfire_method
+    
+    type(frictionvel_type)                  , intent(in)    :: frictionvel_inst ! added by fkm for canopy reduction
     !
     ! !LOCAL VARIABLES:
     real(r8):: cn_decomp_pools(bounds%begc:bounds%endc,1:nlevdecomp,1:ndecomp_pools)
@@ -195,28 +200,28 @@ contains
     begp = bounds%begp; endp = bounds%endp
     begc = bounds%begc; endc = bounds%endc
 
-    !real(r8) , intent(in)    :: rootfr_patch(bounds%begp:, 1:)          
+    !real(r8) , intent(in)    :: rootfr_patch(bounds%begp:, 1:)
     !integer  , intent(in)    :: altmax_lastyear_indx_col(bounds%begc:)  ! frost table depth (m)
 
     associate(                                                                    &
          crootfr_patch             => soilstate_inst%crootfr_patch              , & ! fraction of roots for carbon in each soil layer  (nlevgrnd)
          altmax_lastyear_indx_col  => canopystate_inst%altmax_lastyear_indx_col , & ! frost table depth (m)
-         laisun                    => canopystate_inst%laisun_patch             , & ! Input:  [real(r8) (:)   ]  sunlit projected leaf area index        
-         laisha                    => canopystate_inst%laisha_patch             , & ! Input:  [real(r8) (:)   ]  shaded projected leaf area index        
+         laisun                    => canopystate_inst%laisun_patch             , & ! Input:  [real(r8) (:)   ]  sunlit projected leaf area index
+         laisha                    => canopystate_inst%laisha_patch             , & ! Input:  [real(r8) (:)   ]  shaded projected leaf area index
          frac_veg_nosno            => canopystate_inst%frac_veg_nosno_patch     , & ! Input:  [integer  (:)   ]  fraction of vegetation not covered by snow (0 OR 1) [-]
-         frac_veg_nosno_alb        => canopystate_inst%frac_veg_nosno_alb_patch , & ! Output: [integer  (:) ] frac of vegetation not covered by snow [-]         
-         tlai                      => canopystate_inst%tlai_patch               , & ! Input:  [real(r8) (:) ]  one-sided leaf area index, no burying by snow     
-         tsai                      => canopystate_inst%tsai_patch               , & ! Input:  [real(r8) (:)   ]  one-sided stem area index, no burying by snow     
-         elai                      => canopystate_inst%elai_patch               , & ! Output: [real(r8) (:) ] one-sided leaf area index with burying by snow    
-         esai                      => canopystate_inst%esai_patch               , & ! Output: [real(r8) (:) ] one-sided stem area index with burying by snow    
-         htop                      => canopystate_inst%htop_patch               , & ! Output: [real(r8) (:) ] canopy top (m)                                     
-         hbot                      => canopystate_inst%hbot_patch                 & ! Output: [real(r8) (:) ] canopy bottom (m)                                  
+         frac_veg_nosno_alb        => canopystate_inst%frac_veg_nosno_alb_patch , & ! Output: [integer  (:) ] frac of vegetation not covered by snow [-]
+         tlai                      => canopystate_inst%tlai_patch               , & ! Input:  [real(r8) (:) ]  one-sided leaf area index, no burying by snow
+         tsai                      => canopystate_inst%tsai_patch               , & ! Input:  [real(r8) (:)   ]  one-sided stem area index, no burying by snow
+         elai                      => canopystate_inst%elai_patch               , & ! Output: [real(r8) (:) ] one-sided leaf area index with burying by snow
+         esai                      => canopystate_inst%esai_patch               , & ! Output: [real(r8) (:) ] one-sided stem area index with burying by snow
+         htop                      => canopystate_inst%htop_patch               , & ! Output: [real(r8) (:) ] canopy top (m)
+         hbot                      => canopystate_inst%hbot_patch                 & ! Output: [real(r8) (:) ] canopy bottom (m)
       )
 
     ! --------------------------------------------------
     ! zero the column-level C and N fluxes
     ! --------------------------------------------------
-    
+
     call t_startf('CNZero')
 
     ! COMPILER_BUG(wjs, 2014-11-29, pgi 14.7) Without this, the filter is full of garbage
@@ -264,7 +269,7 @@ contains
     call CNNDeposition(bounds, &
          atm2lnd_inst, soilbiogeochem_nitrogenflux_inst)
     call t_stopf('CNDeposition')
-    
+
     if(use_fun)then
         call t_startf('CNFLivFixation')
         call CNFreeLivingFixation( num_soilc, filter_soilc, &
@@ -276,7 +281,7 @@ contains
             cnveg_carbonflux_inst, soilbiogeochem_nitrogenflux_inst)
        call t_stopf('CNFixation')
     end if
-  
+
 
     if (use_crop) then
        call CNNFert(bounds, num_soilc,filter_soilc, &
@@ -312,16 +317,16 @@ contains
     call SoilBiogeochemPotential (bounds, num_soilc, filter_soilc,                                                    &
          soilbiogeochem_state_inst, soilbiogeochem_carbonstate_inst, soilbiogeochem_carbonflux_inst,                  &
          soilbiogeochem_nitrogenstate_inst, soilbiogeochem_nitrogenflux_inst,                                         &
-         cn_decomp_pools=cn_decomp_pools(begc:endc,1:nlevdecomp,1:ndecomp_pools), & 
+         cn_decomp_pools=cn_decomp_pools(begc:endc,1:nlevdecomp,1:ndecomp_pools), &
          p_decomp_cpool_loss=p_decomp_cpool_loss(begc:endc,1:nlevdecomp,1:ndecomp_cascade_transitions), &
-         pmnf_decomp_cascade=pmnf_decomp_cascade(begc:endc,1:nlevdecomp,1:ndecomp_cascade_transitions)) 
+         pmnf_decomp_cascade=pmnf_decomp_cascade(begc:endc,1:nlevdecomp,1:ndecomp_cascade_transitions))
 
     ! calculate vertical profiles for distributing soil and litter C and N (previously subroutine decomp_vertprofiles called from CNDecompAlloc)
     call SoilBiogeochemVerticalProfile(bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, &
          canopystate_inst, soilstate_inst,soilbiogeochem_state_inst)
 
     ! calculate nitrification and denitrification rates (previously subroutine nitrif_denitrif called from CNDecompAlloc)
-    if (use_nitrif_denitrif) then 
+    if (use_nitrif_denitrif) then
        call SoilBiogeochemNitrifDenitrif(bounds, num_soilc, filter_soilc, &
             soilstate_inst, waterstate_inst, temperature_inst, ch4_inst, &
             soilbiogeochem_carbonflux_inst, soilbiogeochem_nitrogenstate_inst, soilbiogeochem_nitrogenflux_inst)
@@ -329,22 +334,22 @@ contains
     call t_stopf('SoilBiogeochem')
 
     !--------------------------------------------
-    ! Resolve the competition between plants and soil heterotrophs 
-    ! for available soil mineral N resource 
+    ! Resolve the competition between plants and soil heterotrophs
+    ! for available soil mineral N resource
     !--------------------------------------------
 
     call t_startf('CNDecompAlloc')
 
     ! Jinyun Tang: at this stage, the plant_nutrient_demand only calculates the plant ntirgeon demand.
     ! Assume phosphorus dynamics will be included in the future. Also, I consider plant_nutrient_demand
-    ! as a generic interface to call actual nutrient calculation from different aboveground plantbgc. 
-    ! Right now it is assumed the plant nutrient demand is summarized into columnwise demand, and the 
-    ! nutrient redistribution after uptake is done by the plant bgc accordingly. 
-    ! When nutrient competition is required to be done at cohort level both plant_nutrient_demand and 
-    ! do_nutrient_competition should be modified, but that modification should not significantly change 
+    ! as a generic interface to call actual nutrient calculation from different aboveground plantbgc.
+    ! Right now it is assumed the plant nutrient demand is summarized into columnwise demand, and the
+    ! nutrient redistribution after uptake is done by the plant bgc accordingly.
+    ! When nutrient competition is required to be done at cohort level both plant_nutrient_demand and
+    ! do_nutrient_competition should be modified, but that modification should not significantly change
     ! the current interface.
 
-     !RF: moved ths call to before nutrient_demand, so that croplive didn't change half way through crop N cycle. 
+     !RF: moved ths call to before nutrient_demand, so that croplive didn't change half way through crop N cycle.
      if ( use_fun ) then
        call t_startf('CNPhenology_phase1')
        call CNPhenology (bounds, num_soilc, filter_soilc, num_soilp, &
@@ -383,9 +388,9 @@ contains
          soilbiogeochem_state_inst%plant_ndemand_col(begc:endc))
      call t_stopf('calc_plant_nutrient_demand')
 
-     ! resolve plant/heterotroph competition for mineral N 
- 
-   
+     ! resolve plant/heterotroph competition for mineral N
+
+
      call t_startf('soilbiogeochemcompetition')
      call SoilBiogeochemCompetition (bounds, num_soilc, filter_soilc,num_soilp, filter_soilp, waterstate_inst, &
                                      waterflux_inst,temperature_inst,soilstate_inst,cnveg_state_inst,          &
@@ -393,10 +398,12 @@ contains
                                      cnveg_carbonflux_inst,cnveg_nitrogenstate_inst,cnveg_nitrogenflux_inst,   &
                                      soilbiogeochem_carbonflux_inst,&
                                      soilbiogeochem_state_inst,soilbiogeochem_nitrogenstate_inst,              &
-                                     soilbiogeochem_nitrogenflux_inst,canopystate_inst)
+                                     soilbiogeochem_nitrogenflux_inst,canopystate_inst, &
+                                     atm2lnd_inst, &    ! added by fkm for NH3 volatilization
+                                     frictionvel_inst)  ! added by fkm for canopy reduction
      call t_stopf('soilbiogeochemcompetition')
 
-    ! distribute the available N between the competing patches  on the basis of 
+    ! distribute the available N between the competing patches  on the basis of
     ! relative demand, and allocate C and N to new growth and storage
 
     call t_startf('calc_plant_nutrient_competition')
@@ -426,9 +433,9 @@ contains
     call SoilBiogeochemDecomp (bounds, num_soilc, filter_soilc,                                                       &
          soilbiogeochem_state_inst, soilbiogeochem_carbonstate_inst, soilbiogeochem_carbonflux_inst,                  &
          soilbiogeochem_nitrogenstate_inst, soilbiogeochem_nitrogenflux_inst,                                         &
-         cn_decomp_pools=cn_decomp_pools(begc:endc,1:nlevdecomp,1:ndecomp_pools),                       & 
+         cn_decomp_pools=cn_decomp_pools(begc:endc,1:nlevdecomp,1:ndecomp_pools),                       &
          p_decomp_cpool_loss=p_decomp_cpool_loss(begc:endc,1:nlevdecomp,1:ndecomp_cascade_transitions), &
-         pmnf_decomp_cascade=pmnf_decomp_cascade(begc:endc,1:nlevdecomp,1:ndecomp_cascade_transitions)) 
+         pmnf_decomp_cascade=pmnf_decomp_cascade(begc:endc,1:nlevdecomp,1:ndecomp_cascade_transitions))
 
     call t_stopf('SoilBiogeochemDecomp')
 
@@ -473,8 +480,8 @@ contains
     call t_startf('CNGResp')
 
     call CNGResp(num_soilp, filter_soilp,&
-         cnveg_carbonflux_inst, canopystate_inst, cnveg_carbonstate_inst, cnveg_nitrogenstate_inst)  
-         
+         cnveg_carbonflux_inst, canopystate_inst, cnveg_carbonstate_inst, cnveg_nitrogenstate_inst)
+
     call t_stopf('CNGResp')
 
     !--------------------------------------------
@@ -604,12 +611,12 @@ contains
 
     call CNGapMortality (bounds, num_soilc, filter_soilc, num_soilp, filter_soilp,                                &
          dgvs_inst, cnveg_carbonstate_inst, cnveg_nitrogenstate_inst,                                             &
-         cnveg_carbonflux_inst, cnveg_nitrogenflux_inst,  canopystate_inst,                                       &   
-         !cnveg_carbonflux_inst, cnveg_nitrogenflux_inst,                                                         &  
+         cnveg_carbonflux_inst, cnveg_nitrogenflux_inst,  canopystate_inst,                                       &
+         !cnveg_carbonflux_inst, cnveg_nitrogenflux_inst,                                                         &
          leaf_prof_patch=soilbiogeochem_state_inst%leaf_prof_patch(begp:endp, 1:nlevdecomp_full),   &
-         froot_prof_patch=soilbiogeochem_state_inst%froot_prof_patch(begp:endp, 1:nlevdecomp_full), & 
+         froot_prof_patch=soilbiogeochem_state_inst%froot_prof_patch(begp:endp, 1:nlevdecomp_full), &
          croot_prof_patch=soilbiogeochem_state_inst%croot_prof_patch(begp:endp, 1:nlevdecomp_full), &
-         stem_prof_patch=soilbiogeochem_state_inst%stem_prof_patch(begp:endp, 1:nlevdecomp_full))   
+         stem_prof_patch=soilbiogeochem_state_inst%stem_prof_patch(begp:endp, 1:nlevdecomp_full))
 
     call t_stopf('CNGapMortality')
 
@@ -655,7 +662,7 @@ contains
     ! Update2h (harvest)
     !--------------------------------------------
 
-    ! Set harvest mortality routine 
+    ! Set harvest mortality routine
     if (get_do_harvest()) then
        call CNHarvest(num_soilc, filter_soilc, num_soilp, filter_soilp, &
             soilbiogeochem_state_inst, cnveg_carbonstate_inst, cnveg_nitrogenstate_inst, &
@@ -666,14 +673,14 @@ contains
        call CIsoFlux2h(num_soilc, filter_soilc, num_soilp, filter_soilp,   &
             soilbiogeochem_state_inst,                                     &
             cnveg_carbonflux_inst, cnveg_carbonstate_inst,                 &
-            c13_cnveg_carbonflux_inst, c13_cnveg_carbonstate_inst,         &                         
+            c13_cnveg_carbonflux_inst, c13_cnveg_carbonstate_inst,         &
             isotope='c13')
     end if
     if ( use_c14 ) then
        call CIsoFlux2h(num_soilc, filter_soilc, num_soilp, filter_soilp, &
             soilbiogeochem_state_inst,                                     &
             cnveg_carbonflux_inst, cnveg_carbonstate_inst,                 &
-            c14_cnveg_carbonflux_inst, c14_cnveg_carbonstate_inst,         &                         
+            c14_cnveg_carbonflux_inst, c14_cnveg_carbonstate_inst,         &
             isotope='c14')
     end if
 
@@ -754,7 +761,7 @@ contains
          dgvs_inst, cnveg_state_inst,                                                                                              &
          cnveg_carbonstate_inst, cnveg_carbonflux_inst, cnveg_nitrogenstate_inst, cnveg_nitrogenflux_inst,                         &
          leaf_prof_patch=soilbiogeochem_state_inst%leaf_prof_patch(begp:endp, 1:nlevdecomp_full),                                  &
-         froot_prof_patch=soilbiogeochem_state_inst%froot_prof_patch(begp:endp, 1:nlevdecomp_full),                                & 
+         froot_prof_patch=soilbiogeochem_state_inst%froot_prof_patch(begp:endp, 1:nlevdecomp_full),                                &
          croot_prof_patch=soilbiogeochem_state_inst%croot_prof_patch(begp:endp, 1:nlevdecomp_full),                                &
          stem_prof_patch=soilbiogeochem_state_inst%stem_prof_patch(begp:endp, 1:nlevdecomp_full),                                  &
          totsomc_col=soilbiogeochem_carbonstate_inst%totsomc_col(begc:endc),                                                       &
@@ -814,7 +821,7 @@ contains
     end associate
 
   end subroutine CNDriverNoLeaching
-  
+
   !-----------------------------------------------------------------------
   subroutine CNDriverLeaching(bounds, &
        num_soilc, filter_soilc, num_soilp, filter_soilp, &
@@ -824,14 +831,14 @@ contains
     !
     ! !DESCRIPTION:
     ! Update the nitrogen leaching rate as a function of soluble mineral N and total soil water outflow.
-    ! Also update nitrogen state variables         
+    ! Also update nitrogen state variables
     !
     ! !USES:
     use SoilBiogeochemNLeachingMod, only: SoilBiogeochemNLeaching
     use CNNStateUpdate3Mod   , only: NStateUpdate3
     !
     ! !ARGUMENTS:
-    type(bounds_type)                       , intent(in)    :: bounds  
+    type(bounds_type)                       , intent(in)    :: bounds
     integer                                 , intent(in)    :: num_soilc         ! number of soil columns in filter
     integer                                 , intent(in)    :: filter_soilc(:)   ! filter for soil columns
     integer                                 , intent(in)    :: num_soilp         ! number of soil patches in filter
@@ -843,9 +850,9 @@ contains
     type(soilbiogeochem_nitrogenflux_type)  , intent(inout) :: soilbiogeochem_nitrogenflux_inst
     type(soilbiogeochem_nitrogenstate_type) , intent(inout) :: soilbiogeochem_nitrogenstate_inst
     !-----------------------------------------------------------------------
-  
+
     ! Mineral nitrogen dynamics (deposition, fixation, leaching)
-    
+
     call t_startf('SoilBiogeochemNLeaching')
     call SoilBiogeochemNLeaching(bounds, num_soilc, filter_soilc, &
          waterstate_inst, waterflux_inst, soilbiogeochem_nitrogenstate_inst, &
@@ -880,7 +887,7 @@ contains
     ! !USES:
     !
     ! !ARGUMENTS:
-    type(bounds_type)                       , intent(in)    :: bounds  
+    type(bounds_type)                       , intent(in)    :: bounds
     integer                                 , intent(in)    :: num_allc          ! number of columns in allc filter
     integer                                 , intent(in)    :: filter_allc(:)    ! filter for all active columns
     integer                                 , intent(in)    :: num_soilc         ! number of soil columns in filter
@@ -974,7 +981,7 @@ contains
     use clm_varpar                        , only: ndecomp_cascade_transitions
     !
     ! !ARGUMENTS:
-    type(bounds_type)                       , intent(in)    :: bounds  
+    type(bounds_type)                       , intent(in)    :: bounds
     integer                                 , intent(in)    :: num_soilc         ! number of soil columns in filter
     integer                                 , intent(in)    :: filter_soilc(:)   ! filter for soil columns
     integer                                 , intent(in)    :: num_soilp         ! number of soil patches in filter
@@ -1023,7 +1030,7 @@ contains
     call cnveg_carbonflux_inst%Summary(bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, &
          isotope='bulk', &
          soilbiogeochem_hr_col=soilbiogeochem_carbonflux_inst%hr_col(begc:endc), &
-         soilbiogeochem_lithr_col=soilbiogeochem_carbonflux_inst%lithr_col(begc:endc), &  
+         soilbiogeochem_lithr_col=soilbiogeochem_carbonflux_inst%lithr_col(begc:endc), &
          soilbiogeochem_decomp_cascade_ctransfer_col=&
          soilbiogeochem_carbonflux_inst%decomp_cascade_ctransfer_col(begc:endc,1:ndecomp_cascade_transitions), &
          product_closs_grc=c_products_inst%product_loss_grc(begg:endg))
@@ -1032,7 +1039,7 @@ contains
        call c13_cnveg_carbonflux_inst%Summary(bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, &
             isotope='c13', &
             soilbiogeochem_hr_col=c13_soilbiogeochem_carbonflux_inst%hr_col(begc:endc), &
-            soilbiogeochem_lithr_col=c13_soilbiogeochem_carbonflux_inst%lithr_col(begc:endc), &  
+            soilbiogeochem_lithr_col=c13_soilbiogeochem_carbonflux_inst%lithr_col(begc:endc), &
             soilbiogeochem_decomp_cascade_ctransfer_col=&
             c13_soilbiogeochem_carbonflux_inst%decomp_cascade_ctransfer_col(begc:endc,1:ndecomp_cascade_transitions), &
             product_closs_grc=c13_products_inst%product_loss_grc(begg:endg))
@@ -1042,7 +1049,7 @@ contains
        call c14_cnveg_carbonflux_inst%Summary(bounds, num_soilc, filter_soilc, num_soilp, filter_soilp, &
             isotope='c14', &
             soilbiogeochem_hr_col=c14_soilbiogeochem_carbonflux_inst%hr_col(begc:endc), &
-            soilbiogeochem_lithr_col=c14_soilbiogeochem_carbonflux_inst%lithr_col(begc:endc), &  
+            soilbiogeochem_lithr_col=c14_soilbiogeochem_carbonflux_inst%lithr_col(begc:endc), &
             soilbiogeochem_decomp_cascade_ctransfer_col=&
             c14_soilbiogeochem_carbonflux_inst%decomp_cascade_ctransfer_col(begc:endc,1:ndecomp_cascade_transitions), &
             product_closs_grc=c14_products_inst%product_loss_grc(begg:endg))

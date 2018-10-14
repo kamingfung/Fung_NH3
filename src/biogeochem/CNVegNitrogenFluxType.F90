@@ -1201,8 +1201,14 @@ contains
        call hist_addfld1d (fname='NUPTAKE_NPP_FRACTION', units='-',            &
             avgflag='A', long_name='frac of NPP used in N uptake',       &
             ptr_patch=this%nuptake_npp_fraction_patch)
+        
+      ! ===== BEG: added by fkm for N accounting =====
+      this%grainn_to_food_patch(begp:endp)     = spval
+       call hist_addfld1d (fname='GRAINN_TO_FOOD', units='gN/m^2/s',            &
+            avgflag='A', long_name='Grain N harvested',       &
+            ptr_patch=this%grainn_to_food_patch)
+      ! ===== END: added by fkm for N accounting =====
                   
-     
     end if
 
   end subroutine InitHistory

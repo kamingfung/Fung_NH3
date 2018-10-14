@@ -26,6 +26,11 @@ module CanopyStateType
      integer  , pointer :: frac_veg_nosno_alb_patch (:)   ! patch fraction of vegetation not covered by snow (0 OR 1) [-] 
 
      real(r8) , pointer :: tlai_patch               (:)   ! patch canopy one-sided leaf area index, no burying by snow
+     
+     real(r8) , pointer :: canopy_reduction_ratio_patch               (:)   ! patch canopy reduction ratio; added by fkm for canopy reduction
+     real(r8) , pointer :: soil_nh3_to_canopy_patch                   (:)   ! patch NH3 captured by canopy ; added by fkm for canopy reduction
+     real(r8) , pointer :: soil_nh3_to_atmos_patch                    (:)   ! patch NH3 escaped from canopy; added by fkm for canopy reduction
+     
      real(r8) , pointer :: tsai_patch               (:)   ! patch canopy one-sided stem area index, no burying by snow
      real(r8) , pointer :: elai_patch               (:)   ! patch canopy one-sided leaf area index with burying by snow
      real(r8) , pointer :: esai_patch               (:)   ! patch canopy one-sided stem area index with burying by snow
@@ -117,6 +122,11 @@ contains
     allocate(this%frac_veg_nosno_patch     (begp:endp))           ; this%frac_veg_nosno_patch     (:)   = huge(1)
     allocate(this%frac_veg_nosno_alb_patch (begp:endp))           ; this%frac_veg_nosno_alb_patch (:)   = 0
     allocate(this%tlai_patch               (begp:endp))           ; this%tlai_patch               (:)   = nan
+    
+    allocate(this%canopy_reduction_ratio_patch               (begp:endp))           ; this%canopy_reduction_ratio_patch               (:)   = nan   ! added by fkm for canopy reduction
+    allocate(this%soil_nh3_to_canopy_patch                    (begp:endp))           ; this%soil_nh3_to_canopy_patch                   (:)   = nan   ! added by fkm for canopy reduction
+    allocate(this%soil_nh3_to_atmos_patch                      (begp:endp))           ; this%soil_nh3_to_atmos_patch                    (:)   = nan   ! added by fkm for canopy reduction
+    
     allocate(this%tsai_patch               (begp:endp))           ; this%tsai_patch               (:)   = nan
     allocate(this%elai_patch               (begp:endp))           ; this%elai_patch               (:)   = nan
     allocate(this%elai240_patch            (begp:endp))           ; this%elai240_patch            (:)   = nan
@@ -182,6 +192,21 @@ contains
     call hist_addfld1d (fname='TLAI', units='none', &
          avgflag='A', long_name='total projected leaf area index', &
          ptr_patch=this%tlai_patch)
+         
+    this%canopy_reduction_ratio_patch(begp:endp) = spval
+    call hist_addfld1d (fname='CANOPY_REDUCTION_RATIO', units='fraction', &
+         avgflag='A', long_name='canopy reduction ratio', &
+         ptr_patch=this%canopy_reduction_ratio_patch) ! added by fkm for canopy reduction
+         
+    this%soil_nh3_to_canopy_patch(begp:endp) = spval
+    call hist_addfld1d (fname='SOIL_NH3_TO_CANOPY', units='gN m^-2 s^-1', &
+         avgflag='A', long_name='soil emitted NH3 captured by canopy', &
+         ptr_patch=this%soil_nh3_to_canopy_patch) ! added by fkm for canopy reduction
+        
+    this%soil_nh3_to_atmos_patch(begp:endp) = spval
+    call hist_addfld1d (fname='SOIL_NH3_TO_ATMOS', units='gN m^-2 s^-1', &
+         avgflag='A', long_name='soil emitted NH3 released to the atmosphere', &
+         ptr_patch=this%soil_nh3_to_atmos_patch) ! added by fkm for canopy reduction
 
     this%tsai_patch(begp:endp) = spval
     call hist_addfld1d (fname='TSAI', units='none', &

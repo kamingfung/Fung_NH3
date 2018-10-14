@@ -143,7 +143,9 @@ contains
       ! Loop through columns
       do c = bounds%begc, bounds%endc
          g = col%gridcell(c)
-         ndep_to_sminn(c) = forc_ndep(g)
+         ! ndep_to_sminn(c) = forc_ndep(g)   ! commented by fkm for zeroing NDep
+         
+         ndep_to_sminn(c) = 0._r8   ! commented by fkm for zeroing NDep
 
       end do
 

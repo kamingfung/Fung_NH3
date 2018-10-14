@@ -16,7 +16,7 @@ module SoilBiogeochemNStateUpdate1Mod
   use SoilBiogeochemNitrogenfluxType     , only : soilbiogeochem_nitrogenflux_type
   use SoilBiogeochemDecompCascadeConType , only : decomp_cascade_con
   use CNSharedParamsMod                  , only : use_fun
-  use ColumnType                         , only : col 
+  use ColumnType                         , only : col
   !
   implicit none
   private
@@ -49,7 +49,7 @@ contains
 
     !-----------------------------------------------------------------------
 
-    associate(                                                                   & 
+    associate(                                                                   &
          cascade_donor_pool    => decomp_cascade_con%cascade_donor_pool        , & ! Input:  [integer  (:)     ]  which pool is C taken from for a given decomposition step
          cascade_receiver_pool => decomp_cascade_con%cascade_receiver_pool     , & ! Input:  [integer  (:)     ]  which pool is C added to for a given decomposition step
 
@@ -66,7 +66,7 @@ contains
       do j = 1, nlevdecomp
          do fc = 1,num_soilc
             c = filter_soilc(fc)
-            if(use_fun)then !RF in FUN logic, the fixed N goes straight into the plant, and not into the SMINN pool. 
+            if(use_fun)then !RF in FUN logic, the fixed N goes straight into the plant, and not into the SMINN pool.
  	               ! N deposition and fixation (put all into NH4 pool)
 	               ns%smin_nh4_vr_col(c,j) = ns%smin_nh4_vr_col(c,j) + nf%ndep_to_sminn_col(c)*dt * ndep_prof(c,j)
 	               ns%smin_nh4_vr_col(c,j) = ns%smin_nh4_vr_col(c,j) + nf%ffix_to_sminn_col(c)*dt * nfixation_prof(c,j)
@@ -82,12 +82,12 @@ contains
 	               ! N deposition and fixation (put all into NH4 pool)
 	               ns%smin_nh4_vr_col(c,j) = ns%smin_nh4_vr_col(c,j) + nf%ndep_to_sminn_col(c)*dt * ndep_prof(c,j)
 	               ns%smin_nh4_vr_col(c,j) = ns%smin_nh4_vr_col(c,j) + nf%nfix_to_sminn_col(c)*dt * nfixation_prof(c,j)
-                       
+
                 end if
            end if
-          
+
          end do
-         
+
       end do
 
       ! repeating N dep and fixation for crops
@@ -209,7 +209,7 @@ contains
             end do
          end do
 
-      else   
+      else
 
          !--------------------------------------------------------
          !-------------    NITRIF_DENITRIF ON --------------------
@@ -233,18 +233,32 @@ contains
                   ns%smin_nh4_vr_col(c,j) = ns%smin_nh4_vr_col(c,j) - nf%smin_nh4_to_plant_vr_col(c,j)*dt
 
                   ns%smin_no3_vr_col(c,j) = ns%smin_no3_vr_col(c,j) - nf%smin_no3_to_plant_vr_col(c,j)*dt
-               else 
+               else
                   ns%smin_nh4_vr_col(c,j) = ns%smin_nh4_vr_col(c,j) -  nf%sminn_to_plant_fun_nh4_vr_col(c,j)*dt
 
                   ns%smin_no3_vr_col(c,j) = ns%smin_no3_vr_col(c,j) -  nf%sminn_to_plant_fun_no3_vr_col(c,j)*dt
                end if
-             
+
+               ! Account for NH3 volatilization
+               ! ns%smin_nh4_vr_col(c,j) = ns%smin_nh4_vr_col(c,j) - nf%f_nh3_vol_vr_col(c,j) * dt
+               ns%smin_nh4_vr_col(c,j) = ns%smin_nh4_vr_col(c,j) - nf%f_nh3_vol_to_atmos_vr_col(c,j) * dt ! added by fkm for canopy capture
 
                ! Account for nitrification fluxes
                ns%smin_nh4_vr_col(c,j) = ns%smin_nh4_vr_col(c,j) - nf%f_nit_vr_col(c,j) * dt
 
-               ns%smin_no3_vr_col(c,j) = ns%smin_no3_vr_col(c,j) + nf%f_nit_vr_col(c,j) * dt &
-                    * (1._r8 - nitrif_n2o_loss_frac)
+               ! ns%smin_no3_vr_col(c,j) = ns%smin_no3_vr_col(c,j) + nf%f_nit_vr_col(c,j) * dt &
+                    ! * (1._r8 - nitrif_n2o_loss_frac) ! commended by fkm for NOx emission
+                    
+               ! ===== BEG: added by fkm for NOx emission ======
+               ! Adding nitrified NH4 to NO3
+               ns%smin_no3_vr_col(c,j) = ns%smin_no3_vr_col(c,j) + nf%f_nit_vr_col(c,j) * dt
+               
+               ! Deducting N2O leakage from nitrification
+               ns%smin_no3_vr_col(c,j) = ns%smin_no3_vr_col(c,j) - nf%f_n2o_nit_vr_col(c,j) * dt
+               
+               ! Deducting NOx leakage from nitrification
+               ns%smin_no3_vr_col(c,j) = ns%smin_no3_vr_col(c,j) - nf%f_nox_nit_vr_col(c,j) * dt
+               ! ===== END: added by fkm for NOx emission ======
 
                ! Account for denitrification fluxes
                ns%smin_no3_vr_col(c,j) = ns%smin_no3_vr_col(c,j) - nf%f_denit_vr_col(c,j) * dt
@@ -254,10 +268,10 @@ contains
 
                ! update diagnostic total
                ns%sminn_vr_col(c,j) = ns%smin_nh4_vr_col(c,j) + ns%smin_no3_vr_col(c,j)
-               
+
             end do ! end of column loop
          end do
-              
+
       end if
 
     end associate

@@ -25,10 +25,16 @@ module SoilStateType
      ! sand/ clay/ organic matter
      real(r8), pointer :: sandfrac_patch       (:)   ! patch sand fraction
      real(r8), pointer :: clayfrac_patch       (:)   ! patch clay fraction
+     
+     real(r8), pointer :: soilph_patch         (:)   ! patch soil pH; ! added by mvm for soil pH
+     
      real(r8), pointer :: mss_frc_cly_vld_col  (:)   ! col mass fraction clay limited to 0.20
      real(r8), pointer :: cellorg_col          (:,:) ! col organic matter for gridcell containing column (1:nlevsoi)
      real(r8), pointer :: cellsand_col         (:,:) ! sand value for gridcell containing column (1:nlevsoi)
      real(r8), pointer :: cellclay_col         (:,:) ! clay value for gridcell containing column (1:nlevsoi)
+     
+     real(r8), pointer :: cellsoilph_col       (:,:) ! soilph value for gridcell containing column (1:nlevsoi) ; added by mvm for soil pH
+     
      real(r8), pointer :: bd_col               (:,:) ! col bulk density of dry soil material [kg/m^3] (CN)
 
      ! hydraulic properties
@@ -126,9 +132,15 @@ contains
     allocate(this%mss_frc_cly_vld_col  (begc:endc))                     ; this%mss_frc_cly_vld_col  (:)   = nan
     allocate(this%sandfrac_patch       (begp:endp))                     ; this%sandfrac_patch       (:)   = nan
     allocate(this%clayfrac_patch       (begp:endp))                     ; this%clayfrac_patch       (:)   = nan
+    
+    allocate(this%soilph_patch         (begp:endp))                     ; this%soilph_patch          (:)   = nan   ! added by mvm for soil pH
+    
     allocate(this%cellorg_col          (begc:endc,nlevsoi))             ; this%cellorg_col          (:,:) = nan 
     allocate(this%cellsand_col         (begc:endc,nlevsoi))             ; this%cellsand_col         (:,:) = nan 
     allocate(this%cellclay_col         (begc:endc,nlevsoi))             ; this%cellclay_col         (:,:) = nan 
+    
+    allocate(this%cellsoilph_col       (begc:endc,nlevsoi))             ; this%cellsoilph_col         (:,:) = nan   ! added by mvm for soil pH
+    
     allocate(this%bd_col               (begc:endc,nlevgrnd))            ; this%bd_col               (:,:) = nan
 
     allocate(this%hksat_col            (begc:endc,nlevgrnd))            ; this%hksat_col            (:,:) = spval
@@ -230,6 +242,11 @@ contains
             avgflag='A', long_name='clap and hornberger B', &
             ptr_col=this%bsw_col, default='inactive')
     end if
+    
+      this%cellsoilph_col(begc:endc,:) = spval
+      call hist_addfld2d (fname='SOILPH', units=' ', type2d='levsoi', &
+        avgflag='A', long_name='soil pH in each soil layer', &
+        ptr_col=this%cellsoilph_col, default='active') ! added by mvm for soil pH
 
     if (use_dynroot) then
        this%rootfr_patch(begp:endp,:) = spval

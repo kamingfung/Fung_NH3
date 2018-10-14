@@ -151,6 +151,10 @@ contains
     real(r8) ,pointer  :: sand3d (:,:)                  ! read in - soil texture: percent sand (needs to be a pointer for use in ncdio)
     real(r8) ,pointer  :: clay3d (:,:)                  ! read in - soil texture: percent clay (needs to be a pointer for use in ncdio)
     real(r8) ,pointer  :: organic3d (:,:)               ! read in - organic matter: kg/m3 (needs to be a pointer for use in ncdio)
+    
+    real(r8)           :: soilph                        ! soil pH, temporary; added by mvm for soil pH
+    real(r8) ,pointer  :: soilph3d (:,:)                ! read in - soil ph: unitless (needs to be a pointer for use in ncdio); added by mvm for soil pH
+    
     character(len=256) :: locfn                         ! local filename
     integer            :: ipedof  
     integer            :: begp, endp
@@ -225,6 +229,8 @@ contains
 
     allocate(sand3d(begg:endg,nlevsoifl))
     allocate(clay3d(begg:endg,nlevsoifl))
+    
+    allocate(soilph3d(begg:endg,nlevsoifl))   ! added by mvm for soil pH
 
     ! Determine organic_max from parameter file
 
@@ -279,6 +285,20 @@ contains
        soilstate_inst%sandfrac_patch(p) = sand3d(g,1)/100.0_r8
        soilstate_inst%clayfrac_patch(p) = clay3d(g,1)/100.0_r8
     end do
+    
+    ! ====== BEG: added by mvm for soil pH ======
+    ! read in soil 
+    call ncd_io(ncid=ncid, varname='SOILPH', flag='read', data=soilph3d, dim1name=grlnd, readvar=readvar)
+    if (.not. readvar) then
+       call endrun(msg=' ERROR: SOILPH NOT on surfdata file'//errMsg(sourcefile, __LINE__)) 
+    end if
+
+    ! assigning top-layer soil pH to each pft
+    do p = begp,endp
+       g = patch%gridcell(p)
+       soilstate_inst%soilph_patch(p) = soilph3d(g,1)
+    end do
+    ! ====== END: added by mvm for soil pH ======
 
     ! Read fmax
 
@@ -348,6 +368,9 @@ contains
                 soilstate_inst%cellsand_col(c,lev) = spval
                 soilstate_inst%cellclay_col(c,lev) = spval
                 soilstate_inst%cellorg_col(c,lev)  = spval
+                
+                soilstate_inst%cellsoilph_col(c,lev)  = spval   ! added by mvm for soil pH
+                
              end if
           end do
 
@@ -374,6 +397,9 @@ contains
                 soilstate_inst%cellsand_col(c,lev) = spval
                 soilstate_inst%cellclay_col(c,lev) = spval
                 soilstate_inst%cellorg_col(c,lev)  = spval
+                
+                soilstate_inst%cellsoilph_col(c,lev)  = spval   ! added by mvm for soil pH
+                
              end if
           end do
 
@@ -394,23 +420,35 @@ contains
                    clay = clay3d(g,1)
                    sand = sand3d(g,1)
                    om_frac = organic3d(g,1)/organic_max 
+                   
+                   soilph = soilph3d(g,1)   ! added by mvm for soil pH
+                   
                 else if (lev <= nlevsoi) then
                    do j = 1,nlevsoifl-1
                       if (zisoi(lev) >= zisoifl(j) .AND. zisoi(lev) < zisoifl(j+1)) then
                          clay = clay3d(g,j+1)
                          sand = sand3d(g,j+1)
                          om_frac = organic3d(g,j+1)/organic_max    
+                         
+                         soilph = soilph3d(g,j+1)   ! added by mvm for soil pH
+                         
                       endif
                    end do
                 else
                    clay = clay3d(g,nlevsoifl)
                    sand = sand3d(g,nlevsoifl)
                    om_frac = 0._r8
+                   
+                   soilph = soilph3d(g,nlevsoifl)   ! added by mvm for soil pH
+                   
                 endif
              else
                 if (lev <= nlevsoi) then ! duplicate clay and sand values from 10th soil layer
                    clay = clay3d(g,lev)
                    sand = sand3d(g,lev)
+                   
+                   soilph = soilph3d(g,lev)   ! added by mvm for soil pH
+                   
                    if ( organic_frac_squared )then
                       om_frac = (organic3d(g,lev)/organic_max)**2._r8
                    else
@@ -420,6 +458,9 @@ contains
                    clay = clay3d(g,nlevsoi)
                    sand = sand3d(g,nlevsoi)
                    om_frac = 0._r8
+                   
+                   soilph = soilph3d(g,nlevsoi)   ! added by mvm for soil pH
+                   
                 endif
              end if
 
@@ -429,6 +470,9 @@ contains
                    soilstate_inst%cellsand_col(c,lev) = sand
                    soilstate_inst%cellclay_col(c,lev) = clay
                    soilstate_inst%cellorg_col(c,lev)  = om_frac*organic_max
+                   
+                   soilstate_inst%cellsoilph_col(c,lev) = soilph    ! added by mvm for soil pH
+                   
                 end if
 
              else if (lun%itype(l) /= istdlak) then  ! soil columns of both urban and non-urban types
@@ -441,6 +485,9 @@ contains
                    soilstate_inst%cellsand_col(c,lev) = sand
                    soilstate_inst%cellclay_col(c,lev) = clay
                    soilstate_inst%cellorg_col(c,lev)  = om_frac*organic_max
+                   
+                   soilstate_inst%cellsoilph_col(c,lev) = soilph    ! added by mvm for soil pH
+                   
                 end if
 
                 ! Note that the following properties are overwritten for urban impervious road 
@@ -542,10 +589,15 @@ contains
                 else
                    om_frac = soilstate_inst%cellorg_col(c,lev)/organic_max
                 end if
+                
+                soilph  = soilstate_inst%cellsoilph_col(c,lev)    ! added by mvm for soil pH
+                
              else
                 clay    = soilstate_inst%cellclay_col(c,nlevsoi)
                 sand    = soilstate_inst%cellsand_col(c,nlevsoi)
                 om_frac = 0.0_r8
+                
+                soilph  = soilstate_inst%cellsoilph_col(c,nlevsoi)    ! added by mvm for soil pH
              end if
 
              soilstate_inst%watsat_col(c,lev) = 0.489_r8 - 0.00126_r8*sand
@@ -623,6 +675,9 @@ contains
     ! --------------------------------------------------------------------
 
     deallocate(sand3d, clay3d, organic3d)
+    
+    deallocate(soilph3d)    ! added by mvm for soil pH
+    
     deallocate(zisoifl, zsoifl, dzsoifl)
 
   end subroutine SoilStateInitTimeConst
